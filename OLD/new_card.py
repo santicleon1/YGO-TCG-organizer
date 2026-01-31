@@ -70,11 +70,13 @@ def main():
             exit()
 
         card_data = response.json().get("data")[0]
+        ban_data = card_data.get("banlist_info")
+        ban_tcg = ban_data.get("ban_tcg") if ban_data else None
         # Insert card into Card table
         cursor.execute('''
         INSERT OR REPLACE INTO Card 
         (id, name, type, race, level, atk, def, attribute, archetype, desc, linkval, linkmarkers, scale)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
         card_id,
         card_data.get("name"),
@@ -88,7 +90,8 @@ def main():
         card_data.get("desc"),
         card_data.get("linkval"),
         ",".join(card_data.get("linkmarkers", [])) if card_data.get("linkmarkers") else None,
-        card_data.get("scale")
+        card_data.get("scale"),
+        ban_tcg
         ))
 
         # Insert images
