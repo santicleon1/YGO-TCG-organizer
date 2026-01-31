@@ -1,6 +1,6 @@
 def create_db():
 	import sqlite3
-	from utils import config
+	from .utils import config
 
 	conn = sqlite3.connect(config().get("database"))
 	cursor = conn.cursor()
@@ -76,7 +76,7 @@ def create_db():
 
 def create_storage():
     import sqlite3
-    from utils import config
+    from .utils import config
 
     DB_FILE = config().get("database")
 
@@ -111,7 +111,7 @@ def create_storage():
 def transfer_card_in_storage():
     import sqlite3
     import questionary
-    from utils import config
+    from .utils import config
 
     DB_FILE = config().get("database")
 
@@ -199,7 +199,7 @@ def transfer_card_in_storage():
 
 def card_to_storage(card_code, storage_id, count, page):
     import sqlite3
-    from utils import config
+    from .utils import config
 
     DB_FILE = config().get("database")
     

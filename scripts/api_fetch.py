@@ -1,7 +1,7 @@
 def download_image(url, card_id):
     import os
     import requests
-    from utils import config
+    from .utils import config
 
     folder = config().get("image_folder")
 
@@ -19,7 +19,7 @@ def download_image(url, card_id):
 def fetch_card(card_id):
     import sqlite3
     import requests
-    from utils import config
+    from .utils import config
 
     CARD_API_URL = config().get("api_url_id")
     DB_FILE = config().get("database")
@@ -73,7 +73,7 @@ def fetch_card(card_id):
 def fetch_set(card_code):
     import sqlite3
     import requests
-    from utils import config
+    from .utils import config
 
     DB_FILE = config().get("database")
     SET_API_URL = config().get("api_url_set")

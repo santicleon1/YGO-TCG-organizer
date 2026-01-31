@@ -1,7 +1,7 @@
 def new_card():
     import questionary
-    from db_access import card_to_storage
-    from api_fetch import fetch_set
+    from .db_access import card_to_storage
+    from .api_fetch import fetch_set
 
     print("NEW CARD\n")
     card_code = input("Enter card set code: ").upper()
@@ -29,17 +29,17 @@ def new_card():
 
 
 def new_storage():
-    from db_access import create_storage
+    from .db_access import create_storage
     
     create_storage()
 
 
 def transfer_cards():
-    from db_access import transfer_card_in_storage
+    from .db_access import transfer_card_in_storage
 
     transfer_card_in_storage()
 
 def create_database():
-    from db_access import create_db
+    from .db_access import create_db
 
     create_db()
