@@ -1,28 +1,21 @@
-def download_image(url, card_id):
-    import os
+def download_image(url):
     import requests
-    from .utils import config
-
-    folder = config().get("image_folder")
 
     if not url:
         return None
-    os.makedirs(folder, exist_ok=True)
-    local_file = os.path.join(folder, f"{card_id}.jpg")
-    if not os.path.exists(local_file):
-        r = requests.get(url)
-        with open(local_file, 'wb') as f:
-            f.write(r.content)
-    return local_file
+    
+    image = requests.get(url)
+    if image.status_code == 200:
+        return image.content
+    return None
 
 
 def fetch_card(card_id):
-    import sqlite3
     import requests
     from .utils import config
+    from .db_access import db_connect
 
     CARD_API_URL = config().get("api_url_id")
-    DB_FILE = config().get("database")
 
     # Fetch card data
     response = requests.get(CARD_API_URL.format(card_id))
@@ -32,15 +25,30 @@ def fetch_card(card_id):
 
     card_data = response.json().get("data")[0]
     ban_data = card_data.get("banlist_info")
-    ban_tcg = ban_data.get("ban_tcg") if ban_data else None
 
     # Insert card into Card table
-    conn = sqlite3.connect(DB_FILE)
+    conn = db_connect()
     cursor = conn.cursor()
     cursor.execute('''
-    INSERT OR REPLACE INTO Card 
-    (id, name, type, race, level, atk, def, attribute, archetype, desc, linkval, linkmarkers, scale, banlist)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO card 
+    (id, name, type, race, level, atk, def, attribute, archetype, description, linkval, linkmarkers, scale, banlist)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    ON CONFLICT (id)
+    DO UPDATE
+    SET
+        name = EXCLUDED.name,
+        type = EXCLUDED.type,
+        race = EXCLUDED.race,
+        level = EXCLUDED.level,
+        atk = EXCLUDED.atk,
+        def = EXCLUDED.def,
+        attribute = EXCLUDED.attribute,
+        archetype = EXCLUDED.archetype,
+        description = EXCLUDED.description,
+        linkval = EXCLUDED.linkval,
+        linkmarkers = EXCLUDED.linkmarkers,
+        scale = EXCLUDED.scale,
+        banlist = EXCLUDED.banlist
     ''', (
     card_id,
     card_data.get("name"),
@@ -55,30 +63,40 @@ def fetch_card(card_id):
     card_data.get("linkval"),
     ",".join(card_data.get("linkmarkers", [])) if card_data.get("linkmarkers") else None,
     card_data.get("scale"),
-    ban_tcg
+    ban_data.get("ban_tcg") if ban_data else None,
     ))
+
+    conn.commit()
 
     # Insert images
     for img in card_data.get("card_images", []):
-        local_path = download_image(img.get("image_url"), card_data.get("id"))
+        image = download_image(img.get("image_url"))
         cursor.execute('''
-            INSERT OR REPLACE INTO Card_Image (card_id, image)
-            VALUES (?, ?)
+            INSERT INTO card_image (card_id, image)
+            VALUES (%s, %s)
+            ON CONFLICT (card_id)
+            DO UPDATE
+            SET
+                card_id = EXCLUDED.card_id,
+                image = EXCLUDED.image
             ''', (
             card_data.get("id"),
-            local_path,
+            image,
         ))
+    
+    conn.commit()
+
+    return card_data
 
 
 def fetch_set(card_code):
-    import sqlite3
     import requests
     from .utils import config
+    from .db_access import db_connect
 
-    DB_FILE = config().get("database")
     SET_API_URL = config().get("api_url_set")
 
-    conn = sqlite3.connect(DB_FILE)
+    conn = db_connect()
     cursor = conn.cursor()
 
     # Fetch card set data
@@ -93,14 +111,23 @@ def fetch_set(card_code):
 
     # Insert sets
     cursor.execute('''
-        INSERT OR REPLACE INTO Card_Set (card_id, set_name, set_code, set_rarity)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO card_set (card_id, set_name, set_code, set_rarity)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (set_code, set_rarity)
+        DO UPDATE
+        SET
+            card_id = EXCLUDED.card_id,
+            set_name = EXCLUDED.set_name,
+            set_code = EXCLUDED.set_code,
+            set_rarity = EXCLUDED.set_rarity
         ''', (
         set_data.get("id"),
         set_data.get("set_name"),
         set_data.get("set_code"),
         check_rarity(card_sets, card_code),
     ))
+
+    conn.commit()
 
 
 def check_rarity(card_sets, target_set_code):

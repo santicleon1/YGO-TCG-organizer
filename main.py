@@ -6,6 +6,7 @@ choices={
     "Add new storage": new_storage,
     "Transfer cards": transfer_cards,
     "Create new database": create_database,
+    "Test database connection": test_database_conn,
     "Exit": None
 }
 

@@ -1,72 +1,89 @@
-def create_db():
-	import sqlite3
-	from .utils import config
+def db_connect():
+    import psycopg
+    from .utils import config
 
-	conn = sqlite3.connect(config().get("database"))
+    return psycopg.connect(
+        dbname = config().get("database_connection").get("database"),
+        user = config().get("database_connection").get("user"),
+        password = config().get("database_connection").get("password"),
+        host = config().get("database_connection").get("host"),
+        port = config().get("database_connection").get("port")
+    )
+
+
+def create_db():
+	conn = db_connect()
 	cursor = conn.cursor()
 
 	# Cards table
 	cursor.execute('''
-	CREATE TABLE IF NOT EXISTS Card (
-	    id INTEGER PRIMARY KEY,
-	    name TEXT NOT NULL,
-	    type TEXT,
-	    race TEXT,
-	    level INTEGER,
-	    atk INTEGER,
-	    def INTEGER,
-	    linkval INTEGER,
-	    linkmarkers TEXT,
-	    scale INTEGER,
-	    attribute TEXT,
-	    archetype TEXT,
-	    desc TEXT
-	)
+	CREATE TABLE card (
+        id int4 NOT NULL,
+        "name" text NOT NULL,
+        "type" text NULL,
+        race text NULL,
+        "level" int4 NULL,
+        atk int4 NULL,
+        def int4 NULL,
+        linkval int4 NULL,
+        linkmarkers text NULL,
+        "scale" int4 NULL,
+        "attribute" text NULL,
+        archetype text NULL,
+        description text NULL,
+        banlist text NULL,
+                
+        CONSTRAINT card_pkey PRIMARY KEY (id)
+);
 	''')
 
 	# CardSets table
 	cursor.execute('''
-	CREATE TABLE "Card_Set" (
-	"card_id"	INTEGER NOT NULL,
-	"set_code"	TEXT NOT NULL,
-	"set_name"	TEXT NOT NULL,
-	"set_rarity"	TEXT NOT NULL,
-	PRIMARY KEY("set_code","set_rarity"),
-	FOREIGN KEY("card_id") REFERENCES "Card"("id")
-	);
+	CREATE TABLE card_set (
+        card_id int4 NOT NULL,
+        set_code text NOT NULL,
+        set_name text NOT NULL,
+        set_rarity text NOT NULL,
+ 
+        CONSTRAINT card_set_pkey PRIMARY KEY (set_code, set_rarity),
+        CONSTRAINT card_set_card_id_fkey FOREIGN KEY (card_id) REFERENCES public.card(id)
+    );
 	''')
 
 	# CardImages table
 	cursor.execute('''
-	CREATE TABLE "Card_Image" (
-		"card_id"	INTEGER NOT NULL UNIQUE,
-		"image"	TEXT NOT NULL,
-		PRIMARY KEY("card_id"),
-		FOREIGN KEY("card_id") REFERENCES "Card"("id")
-	)
+	CREATE TABLE public.card_image (
+        card_id int4 NOT NULL,
+        image bytea NOT NULL,
+                
+        CONSTRAINT card_image_pkey PRIMARY KEY (card_id),
+        CONSTRAINT card_image_card_id_fkey FOREIGN KEY (card_id) REFERENCES public.card(id)
+    );
 	''')
 
 	# Storage table
 	cursor.execute('''
-	CREATE TABLE "Storage" (
-		"id"	INTEGER NOT NULL UNIQUE,
-		"color"	TEXT NOT NULL,
-		"type"	TEXT NOT NULL,
-	    PRIMARY KEY("id")
-	)
+	CREATE TABLE public."storage" (
+        id int4 NOT NULL,
+        color text NOT NULL,
+        "type" text NOT NULL,
+                
+        CONSTRAINT storage_pkey PRIMARY KEY (id)
+    );
 	''')
 
 	# Card in Storage table
 	cursor.execute('''
-	CREATE TABLE "Card_in_Storage" (
-		"card_code"	INTEGER NOT NULL,
-		"storage_id"	INTEGER NOT NULL,
-	    "page"	INTEGER NOT NULL,
-		"count"	INTEGER NOT NULL,
-		PRIMARY KEY("card_code","storage_id","page"),
-		FOREIGN KEY("card_code") REFERENCES "Card_Set"("set_code"),
-		FOREIGN KEY("storage_id") REFERENCES "Storage"("id")
-	)
+	CREATE TABLE public.card_in_storage (
+        card_code text NOT NULL,
+        card_rarity text NOT NULL,
+        storage_id int4 NOT NULL,
+        page int4 NOT NULL,
+        count int4 NOT NULL,
+        CONSTRAINT card_in_storage_pkey PRIMARY KEY (card_code, storage_id, page),
+        CONSTRAINT card_in_storage_card_code_card_rarity_fkey FOREIGN KEY (card_code,card_rarity) REFERENCES public.card_set(set_code,set_rarity),
+        CONSTRAINT card_in_storage_storage_id_fkey FOREIGN KEY (storage_id) REFERENCES public."storage"(id)
+    );
 	''')
 	conn.commit()
 
@@ -75,17 +92,12 @@ def create_db():
 
 
 def create_storage():
-    import sqlite3
-    from .utils import config
-
-    DB_FILE = config().get("database")
-
-    conn = sqlite3.connect(DB_FILE)
+    conn = db_connect()
     cursor = conn.cursor()
 
     ID = int(input("Enter Storage ID: "))
     
-    cursor.execute("SELECT id FROM Storage WHERE id = ?", (ID,))
+    cursor.execute("SELECT id FROM storage WHERE id = %s", (ID,))
     if cursor.fetchone():
         print("Storage already exists!")
         return
@@ -95,7 +107,7 @@ def create_storage():
     stor_type = input("Enter type of Storage: ")
 
     cursor.execute('''
-    INSERT INTO Storage (id, color, type) VALUES (?, ?, ?)
+    INSERT INTO storage (id, color, type) VALUES (%s, %s, %s)
     ''', (
         ID,
         color,
@@ -109,107 +121,117 @@ def create_storage():
 
 
 def transfer_card_in_storage():
-    import sqlite3
     import questionary
-    from .utils import config
 
-    DB_FILE = config().get("database")
-
-    conn = sqlite3.connect(DB_FILE)
+    conn = db_connect()
     cur = conn.cursor()
 
     # --- Step 1: card set ---
-    set_id = input("Card set ID: ").upper()
+    card_code = input("Card set: ").upper()
 
-    # --- Step 2: get storages ---
+    # --- Step 2: get storages containing this card ---
     cur.execute("""
         SELECT DISTINCT storage_id
-        FROM Card_in_Storage
-        WHERE card_code=?
-    """, (set_id,))
-    
+        FROM card_in_storage
+        WHERE card_code = %s
+    """, (card_code,))
     storages = [str(r[0]) for r in cur.fetchall()]
 
     if not storages:
         print("No cards found for that set_id")
+        cur.close()
+        conn.close()
         return
 
     from_storage = questionary.select(
-        "Select storage:",
+        "Select source storage:",
         choices=storages
     ).ask()
 
-    # --- Step 3: get pages ---
+    # --- Step 3: get pages in source storage ---
     cur.execute("""
         SELECT page
-        FROM Card_in_Storage
-        WHERE card_code=? AND storage_id=?
-    """, (set_id, from_storage))
-
+        FROM card_in_storage
+        WHERE card_code = %s AND storage_id = %s
+    """, (card_code, from_storage))
     pages = [str(r[0]) for r in cur.fetchall()]
 
     from_page = questionary.select(
-        "Select page:",
+        "Select source page:",
         choices=pages
     ).ask()
 
-    # --- Step 4: amount ---
+    # --- Step 4: amount to move ---
     move_amount = int(questionary.text("Amount to transfer:").ask())
 
-    # --- Step 5: destination ---
+    # --- Step 5: destination storage/page ---
     to_storage = questionary.text("Destination storage:").ask()
     to_page = questionary.text("Destination page:").ask()
 
-    # --- Step 6: check count ---
+    # --- Step 6: fetch current count and card_rarity from source ---
     cur.execute("""
-        SELECT count FROM Card_in_Storage
-        WHERE card_code=? AND storage_id=? AND page=?
-    """, (set_id, from_storage, from_page))
+        SELECT "count", card_rarity
+        FROM card_in_storage
+        WHERE card_code = %s AND storage_id = %s AND page = %s
+    """, (card_code, from_storage, from_page))
+    result = cur.fetchone()
 
-    current = cur.fetchone()[0]
-
-    if move_amount > current:
-        print("Not enough cards.")
+    if not result:
+        print("No cards found in the specified source location.")
+        cur.close()
+        conn.close()
         return
 
-    # --- Step 7: transaction ---
-    conn.execute("BEGIN")
+    current_count, card_rarity = result
 
-    # subtract source
+    if move_amount > current_count:
+        print(f"Not enough cards. Current count: {current_count}")
+        cur.close()
+        conn.close()
+        return
+
+    # --- Step 7: subtract from source ---
     cur.execute("""
-        UPDATE Card_in_Storage
-        SET count = count - ?
-        WHERE card_code=? AND storage_id=? AND page=?
-    """, (move_amount, set_id, from_storage, from_page))
+        UPDATE card_in_storage
+        SET "count" = "count" - %s
+        WHERE card_code = %s AND storage_id = %s AND page = %s
+    """, (move_amount, card_code, from_storage, from_page))
 
-    # add destination
+    # --- Step 8: add to destination ---
     cur.execute("""
-        INSERT INTO Card_in_Storage (card_code, storage_id, page, count)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(card_code, storage_id, page)
-        DO UPDATE SET count = count + excluded.count
-    """, (set_id, to_storage, to_page, move_amount))
+        INSERT INTO card_in_storage (card_code, card_rarity, storage_id, page, "count")
+        VALUES (%s, %s, %s, %s, %s)
+        ON CONFLICT (card_code, storage_id, page)
+        DO UPDATE
+        SET "count" = card_in_storage."count" + EXCLUDED."count"
+    """, (card_code, card_rarity, to_storage, to_page, move_amount))
 
+    # --- Step 9: commit and cleanup ---
     conn.commit()
-
-    print("Transfer done.")
-
+    cur.close()
     conn.close()
 
+    print(f"Transferred {move_amount} card(s) of rarity '{card_rarity}' "
+          f"from {from_storage}/{from_page} to {to_storage}/{to_page} successfully.")
 
-def card_to_storage(card_code, storage_id, count, page):
-    import sqlite3
-    from .utils import config
 
-    DB_FILE = config().get("database")
-    
-    conn = sqlite3.connect(DB_FILE)
+def card_to_storage(card_code, card_rarity, storage_id, count, page):
+    conn = db_connect()
     cursor = conn.cursor()
     
     cursor.execute('''
-    INSERT OR REPLACE INTO Card_in_Storage (card_code, storage_id, count, page) VALUES (?, ?, ?, ?)
-    ''', (
+    INSERT INTO card_in_storage (card_code, card_rarity, storage_id, count, page) VALUES (%s, %s, %s, %s, %s)
+    ON CONFLICT (card_code, storage_id, page)
+    DO UPDATE
+    SET
+        card_code = EXCLUDED.card_code,
+        card_rarity = EXCLUDED.card_rarity,
+        storage_id = EXCLUDED.storage_id,
+        count = EXCLUDED.count,
+        page = EXCLUDED.page
+                   ''', (
         card_code,
+        card_rarity,
         storage_id,
         count,
         page, 
@@ -217,3 +239,16 @@ def card_to_storage(card_code, storage_id, count, page):
     conn.commit()
 
     print("\nCard saved successfully!\n")
+
+
+def rarity_fetch(set_code):
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    cursor.execute('''
+    SELECT set_rarity FROM card_set WHERE set_code = %s;
+                   ''', (set_code,))
+    
+    return [item[0] for item in cursor.fetchall()]
+
+    
