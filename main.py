@@ -5,6 +5,7 @@ choices={
     "Add new card": new_card,
     "Add new storage": new_storage,
     "Transfer cards": transfer_cards,
+    "Transfer page": transfer_page,
     "Create new database": create_database,
     "Test database connection": test_database_conn,
     "Exit": None

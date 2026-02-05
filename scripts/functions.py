@@ -43,6 +43,17 @@ def transfer_cards():
     transfer_card_in_storage()
 
 
+def transfer_page():
+    import questionary
+    from .db_access import transfer_page
+
+    storage_id = int(questionary.text("Enter storage id:").ask())
+    from_page = int(questionary.text("ID of page you want to transfer:").ask())
+    set_page = int(questionary.text("ID of page you want to transfer to:").ask())
+    
+    transfer_page(set_page, storage_id, from_page)
+
+
 def create_database():
     from .db_access import create_db
 

@@ -126,93 +126,112 @@ def transfer_card_in_storage():
     conn = db_connect()
     cur = conn.cursor()
 
-    # --- Step 1: card set ---
-    card_code = input("Card set: ").upper()
+    try:
+        card_code = input("Card set: ").upper()
 
-    # --- Step 2: get storages containing this card ---
-    cur.execute("""
-        SELECT DISTINCT storage_id
-        FROM card_in_storage
-        WHERE card_code = %s
-    """, (card_code,))
-    storages = [str(r[0]) for r in cur.fetchall()]
+        cur.execute(
+            """
+            SELECT DISTINCT storage_id
+            FROM card_in_storage
+            WHERE card_code = %s
+            """,
+            (card_code,)
+        )
+        storages = [str(r[0]) for r in cur.fetchall()]
+        if not storages:
+            print("No cards found for that card_code")
+            return
 
-    if not storages:
-        print("No cards found for that set_id")
+        from_storage = questionary.select(
+            "Select source storage:",
+            choices=storages
+        ).ask()
+
+        cur.execute(
+            """
+            SELECT page
+            FROM card_in_storage
+            WHERE card_code = %s AND storage_id = %s
+            """,
+            (card_code, from_storage)
+        )
+        pages = [str(r[0]) for r in cur.fetchall()]
+        if not pages:
+            print("No pages found in selected storage")
+            return
+
+        from_page = questionary.select(
+            "Select source page:",
+            choices=pages
+        ).ask()
+
+        move_amount = int(questionary.text("Amount to transfer:").ask())
+        to_storage = questionary.text("Destination storage:").ask()
+        to_page = questionary.text("Destination page:").ask()
+
+        cur.execute(
+            """
+            SELECT "count", card_rarity
+            FROM card_in_storage
+            WHERE card_code = %s AND storage_id = %s AND page = %s
+            """,
+            (card_code, from_storage, from_page)
+        )
+        row = cur.fetchone()
+        if not row:
+            print("Source location not found")
+            return
+
+        current_count, card_rarity = row
+        if move_amount > current_count or move_amount <= 0:
+            print(f"Invalid amount. Current count: {current_count}")
+            return
+
+        cur.execute(
+            """
+            UPDATE card_in_storage
+            SET "count" = "count" - %s
+            WHERE card_code = %s AND storage_id = %s AND page = %s
+            """,
+            (move_amount, card_code, from_storage, from_page)
+        )
+
+        cur.execute(
+            """
+            DELETE FROM card_in_storage
+            WHERE card_code = %s
+              AND storage_id = %s
+              AND page = %s
+              AND "count" = 0
+            """,
+            (card_code, from_storage, from_page)
+        )
+
+        cur.execute(
+            """
+            INSERT INTO card_in_storage (card_code, card_rarity, storage_id, page, "count")
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (card_code, storage_id, page)
+            DO UPDATE
+            SET "count" = card_in_storage."count" + EXCLUDED."count"
+            """,
+            (card_code, card_rarity, to_storage, to_page, move_amount)
+        )
+
+        conn.commit()
+
+        print(
+            f"Transferred {move_amount} card(s) of rarity '{card_rarity}' "
+            f"from {from_storage}/{from_page} to {to_storage}/{to_page}"
+        )
+
+    except Exception as e:
+        conn.rollback()
+        raise
+
+    finally:
         cur.close()
         conn.close()
-        return
-
-    from_storage = questionary.select(
-        "Select source storage:",
-        choices=storages
-    ).ask()
-
-    # --- Step 3: get pages in source storage ---
-    cur.execute("""
-        SELECT page
-        FROM card_in_storage
-        WHERE card_code = %s AND storage_id = %s
-    """, (card_code, from_storage))
-    pages = [str(r[0]) for r in cur.fetchall()]
-
-    from_page = questionary.select(
-        "Select source page:",
-        choices=pages
-    ).ask()
-
-    # --- Step 4: amount to move ---
-    move_amount = int(questionary.text("Amount to transfer:").ask())
-
-    # --- Step 5: destination storage/page ---
-    to_storage = questionary.text("Destination storage:").ask()
-    to_page = questionary.text("Destination page:").ask()
-
-    # --- Step 6: fetch current count and card_rarity from source ---
-    cur.execute("""
-        SELECT "count", card_rarity
-        FROM card_in_storage
-        WHERE card_code = %s AND storage_id = %s AND page = %s
-    """, (card_code, from_storage, from_page))
-    result = cur.fetchone()
-
-    if not result:
-        print("No cards found in the specified source location.")
-        cur.close()
-        conn.close()
-        return
-
-    current_count, card_rarity = result
-
-    if move_amount > current_count:
-        print(f"Not enough cards. Current count: {current_count}")
-        cur.close()
-        conn.close()
-        return
-
-    # --- Step 7: subtract from source ---
-    cur.execute("""
-        UPDATE card_in_storage
-        SET "count" = "count" - %s
-        WHERE card_code = %s AND storage_id = %s AND page = %s
-    """, (move_amount, card_code, from_storage, from_page))
-
-    # --- Step 8: add to destination ---
-    cur.execute("""
-        INSERT INTO card_in_storage (card_code, card_rarity, storage_id, page, "count")
-        VALUES (%s, %s, %s, %s, %s)
-        ON CONFLICT (card_code, storage_id, page)
-        DO UPDATE
-        SET "count" = card_in_storage."count" + EXCLUDED."count"
-    """, (card_code, card_rarity, to_storage, to_page, move_amount))
-
-    # --- Step 9: commit and cleanup ---
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    print(f"Transferred {move_amount} card(s) of rarity '{card_rarity}' "
-          f"from {from_storage}/{from_page} to {to_storage}/{to_page} successfully.")
 
 
 def card_to_storage(card_code, card_rarity, storage_id, count, page):
@@ -251,4 +270,13 @@ def rarity_fetch(set_code):
     
     return [item[0] for item in cursor.fetchall()]
 
+
+def transfer_page(set_page, storage_id, from_page):
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    cursor.execute('''
+    UPDATE card_in_storage SET page = %s WHERE storage_id = %s AND page = %s;
+                   ''', (set_page, storage_id, from_page,))
     
+    conn.commit()
