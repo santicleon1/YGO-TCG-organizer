@@ -1,13 +1,13 @@
 def db_connect():
     import psycopg
-    from .utils import config
+    from .utils import read_config
 
     return psycopg.connect(
-        dbname = config().get("database_connection").get("database"),
-        user = config().get("database_connection").get("user"),
-        password = config().get("database_connection").get("password"),
-        host = config().get("database_connection").get("host"),
-        port = config().get("database_connection").get("port")
+        dbname = read_config().get("database_connection").get("database"),
+        user = read_config().get("database_connection").get("user"),
+        password = read_config().get("database_connection").get("password"),
+        host = read_config().get("database_connection").get("host"),
+        port = read_config().get("database_connection").get("port")
     )
 
 

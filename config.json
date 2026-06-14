@@ -1,10 +1,10 @@
 {
     "database_connection": {
-        "host": "",
+        "host": "192.168.1.12",
         "port" : 5432,
-        "user": "",
-        "password" : "",
-        "database" : ""
+        "user": "App",
+        "password" : "Application",
+        "database" : "YGO"
     },
     "api_url_id": "https://db.ygoprodeck.com/api/v7/cardinfo.php?id={}",
     "api_url_set": "https://db.ygoprodeck.com/api/v7/cardsetsinfo.php?setcode={}"

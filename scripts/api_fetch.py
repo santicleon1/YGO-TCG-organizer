@@ -12,10 +12,10 @@ def download_image(url):
 
 def fetch_card(card_id):
     import requests
-    from .utils import config
+    from .utils import read_config
     from .db_access import db_connect
 
-    CARD_API_URL = config().get("api_url_id")
+    CARD_API_URL = read_config().get("api_url_id")
 
     # Fetch card data
     response = requests.get(CARD_API_URL.format(card_id))
@@ -91,10 +91,10 @@ def fetch_card(card_id):
 
 def fetch_set(card_code):
     import requests
-    from .utils import config
+    from .utils import read_config
     from .db_access import db_connect
 
-    SET_API_URL = config().get("api_url_set")
+    SET_API_URL = read_config().get("api_url_set")
 
     conn = db_connect()
     cursor = conn.cursor()

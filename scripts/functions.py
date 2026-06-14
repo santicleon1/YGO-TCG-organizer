@@ -68,3 +68,21 @@ def test_database_conn():
     
     else:
         print("Connection failed")
+
+
+def current_storage():
+    from .db_access import db_connect
+    from .utils import config
+
+    conn = db_connect()
+    cur = conn.cursor()
+
+    storage_id = int(input("Enter Storage ID: "))
+    
+    cur.execute('''SELECT count(*) FROM storage WHERE id = ?''', (storage_id,))
+    if cur.fetchone():
+        page = int(input("Page number: "))
+
+    config()
+
+    
