@@ -11,6 +11,7 @@ def download_image(url):
 
 
 def fetch_card(card_id):
+    import questionary
     import requests
     from .utils import read_config
     from .db_access import db_connect
@@ -20,7 +21,7 @@ def fetch_card(card_id):
     # Fetch card data
     response = requests.get(CARD_API_URL.format(card_id))
     if response.status_code != 200:
-        print(f"Error fetching card {card_id}: {response.status_code}")
+        questionary.print(f"Error fetching card {card_id}: {response.status_code}", style="bold fg:red")
         exit()
 
     card_data = response.json().get("data")[0]
@@ -91,6 +92,7 @@ def fetch_card(card_id):
 
 def fetch_set(card_code):
     import requests
+    import questionary
     from .utils import read_config
     from .db_access import db_connect
 
@@ -102,7 +104,7 @@ def fetch_set(card_code):
     # Fetch card set data
     response = requests.get(SET_API_URL.format(card_code))
     if response.status_code != 200:
-        print(f"Error fetching card set {card_code}: {response.status_code}")
+        questionary.print(f"Error fetching card set {card_code}: {response.status_code}", style="bold fg:red")
         exit()
 
     set_data = response.json()
@@ -139,7 +141,7 @@ def check_rarity(card_sets, target_set_code):
             matching_sets.append(cs["set_rarity"])
 
     if not matching_sets:
-        print(f"No entries found for set code {target_set_code}")
+        questionary.print(f"No entries found for set code {target_set_code}", style="bold fg:red")
         return None
 
     if len(matching_sets) == 1:

@@ -71,18 +71,33 @@ def test_database_conn():
 
 
 def current_storage():
+    import questionary
     from .db_access import db_connect
-    from .utils import config
+    from .utils import write_config, read_config
 
     conn = db_connect()
     cur = conn.cursor()
 
     storage_id = int(input("Enter Storage ID: "))
     
-    cur.execute('''SELECT count(*) FROM storage WHERE id = ?''', (storage_id,))
+    cur.execute('''SELECT id FROM storage WHERE id = %s''', (storage_id,))
     if cur.fetchone():
         page = int(input("Page number: "))
+        data = {"storage_id": storage_id, "page": page}
 
-    config()
+        config_data = read_config()
+        config_data["default_storage"] = data
+        
+        write_config(config_data)
+        questionary.print("\nConfig written successfully!", style="bold fg:green")
+
+        return
+
+    else:
+        questionary.print("\nStorage ID not found in database!", style="bold fg:red")
+        return  
+
+    
+
 
     

@@ -8,6 +8,7 @@ choices={
     "Transfer page": transfer_page,
     "Create new database": create_database,
     "Test database connection": test_database_conn,
+    "Default storage entry": current_storage,
     "Exit": None
 }
 
