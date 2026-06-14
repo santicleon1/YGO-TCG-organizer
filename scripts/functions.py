@@ -1,5 +1,6 @@
 def new_card():
     import questionary
+    from .utils import read_config
     from .db_access import card_to_storage, rarity_fetch
     from .api_fetch import fetch_set
 
@@ -12,8 +13,20 @@ def new_card():
     card_rarity = questionary.select("Select rarity of the card you want to add to storage", rarity).ask()
 
     print("\nSTORAGE INFO")
-    storage_id = int(input("Enter ID of storage location of this card: "))
-    storage_page = int(input("Enter page number card is located on: "))
+
+    if not read_config().get("default_storage"):
+        questionary.print("\nNo default storage set! Please enter storage info for this card.", style="bold fg:yellow")
+        storage_id = int(input("Enter ID of storage location of this card: "))
+        storage_page = int(input("Enter page number card is located on: "))
+
+    else:
+        if questionary.confirm("\nDefault storage found! Do you want to use it for this card?").ask():
+            storage_id = read_config().get("default_storage").get("storage_id")
+            storage_page = read_config().get("default_storage").get("page")
+        else:
+            storage_id = int(input("Enter ID of storage location of this card: "))
+            storage_page = int(input("Enter page number card is located on: "))
+    
     card_count = int(input("Enter count: "))
     card_to_storage(card_code, card_rarity, storage_id, card_count, storage_page)
 
