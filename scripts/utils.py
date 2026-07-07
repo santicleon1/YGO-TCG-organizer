@@ -2,9 +2,7 @@ from pathlib import Path
 import json
 
 def config():
-    # project root
-    root = Path(__file__).resolve().parent.parent
-    return root / "config.json"
+    return "./config.json"
 
 
 def read_config():

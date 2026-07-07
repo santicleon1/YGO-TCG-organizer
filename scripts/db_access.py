@@ -2,13 +2,18 @@ def db_connect():
     import psycopg
     from .utils import read_config
 
-    return psycopg.connect(
+    try:
+        return psycopg.connect(
         dbname = read_config().get("database_connection").get("database"),
         user = read_config().get("database_connection").get("user"),
         password = read_config().get("database_connection").get("password"),
         host = read_config().get("database_connection").get("host"),
         port = read_config().get("database_connection").get("port")
     )
+        
+    except:
+        return None
+    
 
 
 def create_db():

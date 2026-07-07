@@ -75,12 +75,13 @@ def create_database():
 
 def test_database_conn():
     from .db_access import db_connect
+    import questionary
 
     if db_connect():
-        print("Connection succeed")
+        questionary.print(f"Connection succeed", style="bold fg:green")
     
     else:
-        print("Connection failed")
+        questionary.print(f"Connection failed", style="bold fg:red")
 
 
 def current_storage():
