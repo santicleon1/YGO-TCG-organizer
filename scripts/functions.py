@@ -68,12 +68,14 @@ def transfer_page():
 
 
 def create_database():
+    # creates whole DB structure in configured DB
     from .db_access import create_db
 
     create_db()
 
 
 def test_database_conn():
+    # makes connection to a DB and returns result
     from .db_access import db_connect
     import questionary
 

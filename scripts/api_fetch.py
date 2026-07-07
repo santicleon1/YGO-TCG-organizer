@@ -87,6 +87,8 @@ def fetch_card(card_id):
     
     conn.commit()
 
+    questionary.print(f"Found card: {card_data.get("name")}", style="bold fg:green")
+
     return card_data
 
 

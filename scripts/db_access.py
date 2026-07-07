@@ -15,13 +15,14 @@ def db_connect():
         return None
     
 
-
 def create_db():
-	conn = db_connect()
-	cursor = conn.cursor()
+    import questionary
+
+    conn = db_connect()
+    cursor = conn.cursor()
 
 	# Cards table
-	cursor.execute('''
+    cursor.execute('''
 	CREATE TABLE card (
         id int4 NOT NULL,
         "name" text NOT NULL,
@@ -43,7 +44,7 @@ def create_db():
 	''')
 
 	# CardSets table
-	cursor.execute('''
+    cursor.execute('''
 	CREATE TABLE card_set (
         card_id int4 NOT NULL,
         set_code text NOT NULL,
@@ -56,7 +57,7 @@ def create_db():
 	''')
 
 	# CardImages table
-	cursor.execute('''
+    cursor.execute('''
 	CREATE TABLE public.card_image (
         card_id int4 NOT NULL,
         image bytea NOT NULL,
@@ -67,7 +68,7 @@ def create_db():
 	''')
 
 	# Storage table
-	cursor.execute('''
+    cursor.execute('''
 	CREATE TABLE public."storage" (
         id int4 NOT NULL,
         color text NOT NULL,
@@ -78,7 +79,7 @@ def create_db():
 	''')
 
 	# Card in Storage table
-	cursor.execute('''
+    cursor.execute('''
 	CREATE TABLE public.card_in_storage (
         card_code text NOT NULL,
         card_rarity text NOT NULL,
@@ -90,13 +91,14 @@ def create_db():
         CONSTRAINT card_in_storage_storage_id_fkey FOREIGN KEY (storage_id) REFERENCES public."storage"(id)
     );
 	''')
-	conn.commit()
+    conn.commit()
 
-	print("Database created successfully.")
-	return
+    questionary.print("Database created successfully.", style="bold fg:green")
+    return
 
 
 def create_storage():
+    import questionary
     conn = db_connect()
     cursor = conn.cursor()
 
@@ -104,7 +106,7 @@ def create_storage():
     
     cursor.execute("SELECT id FROM storage WHERE id = %s", (ID,))
     if cursor.fetchone():
-        print("Storage already exists!")
+        questionary.print("Storage already exists!", style="bold fg:red")
         return
         
 
@@ -121,7 +123,7 @@ def create_storage():
 
     conn.commit()
 
-    print(f"\nNew Storage entry with id {ID} created successfully.")
+    questionary.print(f"\nNew Storage entry with id {ID} created successfully.", style="bold fg:green")
     return
 
 
@@ -144,7 +146,7 @@ def transfer_card_in_storage():
         )
         storages = [str(r[0]) for r in cur.fetchall()]
         if not storages:
-            print("No cards found for that card_code")
+            questionary.print("No cards found for that card_code", style="bold fg:yellow")
             return
 
         from_storage = questionary.select(
@@ -162,7 +164,7 @@ def transfer_card_in_storage():
         )
         pages = [str(r[0]) for r in cur.fetchall()]
         if not pages:
-            print("No pages found in selected storage")
+            questionary.print("No pages found in selected storage", style="bold fg:yellow")
             return
 
         from_page = questionary.select(
@@ -184,12 +186,12 @@ def transfer_card_in_storage():
         )
         row = cur.fetchone()
         if not row:
-            print("Source location not found")
+            questionary.print("Source location not found", style="bold fg:yellow")
             return
 
         current_count, card_rarity = row
         if move_amount > current_count or move_amount <= 0:
-            print(f"Invalid amount. Current count: {current_count}")
+            questionary.print(f"Invalid amount. Current count: {current_count}", style="bold fg:red")
             return
 
         cur.execute(
@@ -225,12 +227,13 @@ def transfer_card_in_storage():
 
         conn.commit()
 
-        print(
+        questionary.print(
             f"Transferred {move_amount} card(s) of rarity '{card_rarity}' "
-            f"from {from_storage}/{from_page} to {to_storage}/{to_page}"
+            f"from {from_storage}/{from_page} to {to_storage}/{to_page}",
+            style="bold fg:green"
         )
 
-    except Exception as e:
+    except:
         conn.rollback()
         raise
 
@@ -240,6 +243,7 @@ def transfer_card_in_storage():
 
 
 def card_to_storage(card_code, card_rarity, storage_id, count, page):
+    import questionary
     conn = db_connect()
     cursor = conn.cursor()
     
@@ -262,7 +266,7 @@ def card_to_storage(card_code, card_rarity, storage_id, count, page):
     ))
     conn.commit()
 
-    print("\nCard saved successfully!\n")
+    questionary.print("\nCard saved successfully!\n", style="bold fg:green")
 
 
 def rarity_fetch(set_code):
