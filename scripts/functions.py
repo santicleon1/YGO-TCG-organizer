@@ -14,18 +14,12 @@ def new_card():
 
     print("\nSTORAGE INFO")
 
-    if not read_config().get("default_storage"):
-        questionary.print("\nNo default storage set! Please enter storage info for this card.", style="bold fg:yellow")
+    read_config().get("default_storage")
+    storage_id = read_config().get("default_storage").get("storage_id")
+    storage_page = read_config().get("default_storage").get("page")
+    if not questionary.confirm(f"\nDefault storage found!\nID: {storage_id}\nPage: {storage_page}\nDo you want to use it for this card?").ask():
         storage_id = int(input("Enter ID of storage location of this card: "))
         storage_page = int(input("Enter page number card is located on: "))
-
-    else:
-        if questionary.confirm("\nDefault storage found! Do you want to use it for this card?").ask():
-            storage_id = read_config().get("default_storage").get("storage_id")
-            storage_page = read_config().get("default_storage").get("page")
-        else:
-            storage_id = int(input("Enter ID of storage location of this card: "))
-            storage_page = int(input("Enter page number card is located on: "))
     
     card_count = int(input("Enter count: "))
     card_to_storage(card_code, card_rarity, storage_id, card_count, storage_page)
